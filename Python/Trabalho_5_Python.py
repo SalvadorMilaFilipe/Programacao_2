@@ -1,0 +1,6 @@
+n1 = int(input("Diz um número: \n"))
+n2 = int(input("Diz um número: \n"))
+print((n1 + n2))
+print((n1 - n2))
+print((n1 * n2))
+print((n1 / n2))
