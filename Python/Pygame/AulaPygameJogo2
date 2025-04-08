@@ -1,0 +1,125 @@
+import pygame
+
+pygame.init()
+
+colours = {
+    "branca": (255, 255, 255),
+    "preta": (0, 0, 0),
+    "amarela": (255, 255, 0),
+    "azul": (0, 0, 255),
+    "verde": (0, 255, 0)
+}
+
+screen_size = (800, 600)
+screen = pygame.display.set_mode(screen_size)
+pygame.display.set_caption("Quebra-Blocos")
+
+points = 0
+
+ball_size = 15
+ball = pygame.Rect(100, 500, ball_size, ball_size)
+
+player_size = 100
+player = pygame.Rect(350, 550, player_size, 15)
+
+player_x = 350
+player_speed = 2  
+
+ball_dx = 2  
+ball_dy = -2  
+def draw_text(text, size, color, x, y):
+    font = pygame.font.Font(None, size)
+    text_surface = font.render(text, True, color)
+    text_rect = text_surface.get_rect()
+    text_rect.topleft = (x, y)  
+    screen.blit(text_surface, text_rect)
+def create_blocks(qtde_bloc_lines, qtde_line_blocs):
+    width = screen_size[0]
+    distance_blocs = 5
+    width_blocks = width / qtde_line_blocs - distance_blocs
+    height_blocks = 15
+    distance_lines = height_blocks + 10
+    blocks = []
+
+    for i in range(qtde_line_blocs):
+        for j in range(qtde_bloc_lines):
+            block = pygame.Rect(
+                i * (width_blocks + distance_blocs),
+                j * distance_lines + 50,
+                width_blocks, height_blocks
+            )
+            blocks.append(block)
+
+    return blocks
+
+blocks = create_blocks(5, 8)
+
+def movimentation():
+    global player_x
+    keys = pygame.key.get_pressed()
+
+    if keys[pygame.K_a] and player_x > 0:
+        player_x -= player_speed  
+    if keys[pygame.K_d] and player_x < screen_size[0] - player_size:
+        player_x += player_speed
+
+    player.x = int(player_x)
+
+def move_ball():
+    global ball_dx, ball_dy,points 
+
+    ball.x += ball_dx
+    ball.y += ball_dy
+
+    if ball.left <= 0 or ball.right >= screen_size[0]:
+        ball_dx *= -1  
+
+    if ball.top <= 0:
+        ball_dy *= -1  
+
+    if ball.colliderect(player) and ball_dy > 0:  
+        ball_dy *= -1  
+    if ball.top > screen_size[1]: 
+        ball.x = player.x + (player_size // 2) - (ball_size // 2)  
+        ball.y = 250
+
+
+    for block in blocks[:]:  
+        if ball.colliderect(block):
+            blocks.remove(block)  
+            ball_dy *= -1  
+            points +=10
+            break  
+
+def design_of_game():
+    screen.fill(colours["branca"])
+    pygame.draw.rect(screen, colours["azul"], player)
+    pygame.draw.rect(screen, colours["preta"], ball)
+
+def design_of_blocks():
+    for block in blocks:
+        pygame.draw.rect(screen, colours["verde"], block)
+
+rodando = True
+
+while rodando:
+    pygame.time.delay(10)  
+
+    for evento in pygame.event.get():
+        if evento.type == pygame.QUIT:
+            rodando = False
+
+    movimentation()  
+    move_ball()  
+    design_of_game()  
+    design_of_blocks()  
+    draw_text(f"Points: {points}", 50, colours["preta"], 10,10)
+    if points == 400:
+        rodando = False
+        
+
+    pygame.display.flip()  
+continuar = True
+
+
+pygame.quit()

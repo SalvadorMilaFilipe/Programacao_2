@@ -1,0 +1,224 @@
+import pygame
+import random
+
+pygame.init()
+clock = pygame.time.Clock()
+colours = {
+    "branca": (255, 255, 255),
+    "preta": (0, 0, 0),
+    "amarela": (255, 255, 0),
+    "azul": (0, 0, 255),
+    "verde": (23, 61, 24),
+    "vermelho escuro": (102, 0, 0),
+    "verde claro": (37, 245, 37)
+}
+
+screen_width = 800
+screen_height = 600
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Car Road Rage")
+
+# Carregamento e escalonamento das imagens
+road = pygame.image.load("Road.png")
+car = pygame.image.load("Carro2D.png")
+petrol = pygame.image.load("Petrol.png")
+enemyCar = pygame.image.load("EnemyCar.png")
+
+escala = 0.85
+car = pygame.transform.scale(car, (int(car.get_width() * escala), int(car.get_height() * escala)))
+
+petrol_width, petrol_height = 100, 100
+petrol = pygame.transform.scale(petrol, (petrol_width, petrol_height))
+
+enemyCar = pygame.transform.scale(enemyCar, (int(enemyCar.get_width() * 0.65), int(enemyCar.get_height() * 0.65)))
+enemy_width, enemy_height = enemyCar.get_size()
+
+road_x = (screen_width - road.get_width()) // 2
+car_x = road_x + (road.get_width() - car.get_width()) // 2
+car_y = 300
+speed = 10
+original_speed = speed
+road_offset = 0
+score = 0
+life = 3
+bestscore = 0
+road_left = (screen_width - 500) // 2
+road_right = road_left + 310
+
+def draw_text(text, size, color, x, y):
+    font = pygame.font.Font(None, size)
+    text_surface = font.render(text, True, color)
+    screen.blit(text_surface, (x, y))
+
+def spawn_petrol():
+    return {
+        "x": random.randint(road_left, road_right - petrol_width),
+        "y": random.randint(-600, -100),
+        "active": True
+    }
+
+def spawn_enemy_car(existing_enemies):
+    while True:
+        x = random.randint(road_left, road_right - enemy_width)
+        y = random.randint(-600, -100)
+        new_rect = pygame.Rect(x + 10, y + 5, enemy_width - 20, enemy_height - 10)
+        overlap = False
+        for other in existing_enemies:
+            if other["active"]:
+                existing_rect = pygame.Rect(other["x"] + 10, other["y"] + 5, enemy_width - 20, enemy_height - 10)
+                if new_rect.colliderect(existing_rect):
+                    overlap = True
+                    break
+        if not overlap:
+            return {"x": x, "y": y, "active": True}
+
+# Função para desenhar o botão
+def draw_button(text, x, y, width, height, color, text_color):
+    pygame.draw.rect(screen, color, (x, y, width, height))
+    draw_text(text, 30, text_color, x + (width // 4), y + (height // 4))
+
+# Função para reiniciar o jogo
+def restart_game():
+    global car_x, car_y, speed, score, life, petrols, enemy_cars, petrol_collision, road_offset, time_slowdown
+    car_x = road_x + (road.get_width() - car.get_width()) // 2
+    car_y = 300
+    speed = original_speed
+    score = 0
+    life = 3
+    petrol_collision = False
+    road_offset = 0
+    petrols = [spawn_petrol() for _ in range(3)]
+    enemy_cars = []
+    for _ in range(2):
+        enemy_cars.append(spawn_enemy_car(enemy_cars))
+
+# Inicializa os objetos de combustível e inimigos
+petrols = [spawn_petrol() for _ in range(3)]
+enemy_cars = []
+for _ in range(2):
+    enemy_cars.append(spawn_enemy_car(enemy_cars))
+
+time_slowdown = 0
+petrol_collision = False
+
+iswindowopen = True
+while iswindowopen:
+    pygame.time.delay(50)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            iswindowopen = False
+
+    keys = pygame.key.get_pressed()
+    
+    # Atualiza a lógica do jogo apenas enquanto o jogador estiver vivo
+    if life > 0:
+        new_x = car_x
+        new_y = car_y
+
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            new_x -= speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            new_x += speed
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            new_y -= speed
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            new_y += speed
+
+        if road_left <= new_x <= road_right:
+            car_x = new_x
+        if 0 <= new_y <= screen_height - car.get_height():
+            car_y = new_y
+
+        road_offset += speed // 2
+        score += 5  # Atualiza score enquanto o jogador estiver vivo
+
+        if road_offset >= screen_height:
+            road_offset = 0
+
+        for petrol_obj in petrols:
+            petrol_obj["y"] += speed // 2
+            if petrol_obj["y"] > screen_height:
+                petrol_obj.update(spawn_petrol())
+
+        for i in range(len(enemy_cars)):
+            enemy = enemy_cars[i]
+            enemy["y"] += speed // 2
+            if enemy["y"] > screen_height:
+                enemy_cars[i] = spawn_enemy_car(enemy_cars)
+
+        car_rect = car.get_rect(topleft=(car_x, car_y))
+
+        # Ajusta o collider do petrol (sem alterar o sprite)
+        petrol_offset_x = 10
+        petrol_offset_y = 10
+        petrol_collider_width = petrol_width - 20
+        petrol_collider_height = petrol_height - 20
+
+        for petrol_obj in petrols:
+            if petrol_obj["active"]:
+                petrol_rect = pygame.Rect(
+                    petrol_obj["x"] + petrol_offset_x,
+                    petrol_obj["y"] + petrol_offset_y,
+                    petrol_collider_width,
+                    petrol_collider_height
+                )
+                if car_rect.colliderect(petrol_rect):
+                    petrol_obj["active"] = False
+                    petrol_collision = True
+                    time_slowdown = pygame.time.get_ticks()
+                    speed = 5
+                    score += 10
+
+        if petrol_collision and pygame.time.get_ticks() - time_slowdown > 3000:
+            speed = original_speed
+            life -= 0.25
+            petrol_collision = False
+            for petrol_obj in petrols:
+                if not petrol_obj["active"]:
+                    petrol_obj.update(spawn_petrol())
+
+        for i, enemy in enumerate(enemy_cars):
+            if enemy["active"]:
+                enemy_rect = pygame.Rect(enemy["x"] + 10, enemy["y"] + 5, enemy_width - 20, enemy_height - 10)
+                if car_rect.colliderect(enemy_rect):
+                    life -= 1
+                    enemy_cars[i] = spawn_enemy_car(enemy_cars)
+    
+    # Renderização: desenha o fundo, estrada e elementos do jogo
+    screen.fill(colours["verde"])
+    screen.blit(road, (road_x, road_offset))
+    screen.blit(road, (road_x, road_offset - road.get_height()))
+
+    for petrol_obj in petrols:
+        if petrol_obj["active"]:
+            screen.blit(petrol, (petrol_obj["x"], petrol_obj["y"]))
+
+    for enemy in enemy_cars:
+        if enemy["active"]:
+            screen.blit(enemyCar, (enemy["x"], enemy["y"]))
+
+    # Se o jogador ainda estiver vivo, exibe a interface de jogo
+    if life > 0:
+        draw_text(f"Pontos: {score}", 25, colours["preta"], 10, 10)
+        draw_text(f"Vida: {life}", 25, colours["vermelho escuro"], 10, 30)
+        screen.blit(car, (car_x, car_y))
+    else:
+        # Tela de Game Over
+        screen.fill(colours["branca"])
+        if score > bestscore:
+            bestscore = score
+            draw_text("Novo Recorde", 35, colours["verde claro"], 325, 150)
+        draw_text("Perdeste!!!", 50, colours["vermelho escuro"], 325, 200)
+        draw_text(f"Pontuação: {score}", 35, colours["verde"], 325, 250)
+        draw_text(f"Melhor Pontuação: {bestscore}", 35, colours["verde claro"], 325, 300)
+        # Botão de "Jogar Novamente"
+        draw_button("Jogar Novamente", 300, 350, 200, 50, colours["branca"], colours["preta"])
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        if pygame.mouse.get_pressed()[0]:
+            if 300 <= mouse_x <= 500 and 350 <= mouse_y <= 400:
+                restart_game()
+
+    pygame.display.update()
+    clock.tick(60)
+
+pygame.quit()
